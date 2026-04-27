@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TKM Sticky Note Finder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #1a1814;
+    --surface: #242019;
+    --surface2: #2e2a22;
+    --border: #3d3830;
+    --accent: #e8c84a;
+    --accent2: #e87c4a;
+    --text: #f0ead8;
+    --text2: #a09880;
+    --highlight: rgba(232, 200, 74, 0.35);
+    --highlight-border: #e8c84a;
+    --red: #e85a4a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  header h1 {
+    font-family: 'Courier Prime', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
+  header p {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+
+  .search-bar {
+    padding: 14px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .search-bar input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-bar input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-bar input::placeholder { color: var(--text2); }
+
+  .clear-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .clear-btn:active { background: var(--border); }
+
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Camera section */
+  .camera-section {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .capture-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #1a1814;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+  }
+
+  .capture-btn:active { opacity: 0.8; }
+
+  .capture-btn.secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  #cameraInput { display: none; }
+  #galleryInput { display: none; }
+
+  /* Image preview */
+  .preview-container {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    display: none;
+  }
+
+  .preview-container.visible { display: block; }
+
+  #previewImg {
+    width: 100%;
+    display: block;
+  }
+
+  /* Highlights overlay */
+  .highlights-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  .highlight-box {
+    position: absolute;
+    background: var(--highlight);
+    border: 2px solid var(--highlight-border);
+    border-radius: 3px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(232,200,74,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(232,200,74,0); }
+  }
+
+  /* OCR status */
+  .status {
+    text-align: center;
+    padding: 12px;
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .status.loading { color: var(--accent); }
+  .status.found { color: #6dcc7a; }
+  .status.notfound { color: var(--red); }
+
+  /* Results section */
+  .results-section {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .result-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .extracted-text {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: none;
+  }
+
+  .extracted-text.visible { display: block; }
+
+  mark {
+    background: var(--highlight);
+    color: var(--accent);
+    border-radius: 2px;
+    padding: 0 2px;
+    font-weight: 700;
+  }
+
+  /* Quick search chips */
+  .chips-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 16px 16px 8px;
+  }
+
+  .chips {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Courier Prime', monospace;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chip:active, .chip.active {
+    background: rgba(232,200,74,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(232,200,74,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📖 TKM Sticky Finder</h1>
+  <p>Take a photo of your book, find the quote</p>
+</header>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="Paste quote to find..." autocomplete="off" autocorrect="off" spellcheck="false">
+  <button class="clear-btn" onclick="clearAll()">Clear</button>
+</div>
+
+<div class="main">
+  <div class="camera-section">
+    <button class="capture-btn" onclick="document.getElementById('cameraInput').click()">
+      📷 Take Photo of Page
+    </button>
+    <button class="capture-btn secondary" onclick="document.getElementById('galleryInput').click()">
+      🖼 Choose from Gallery
+    </button>
+
+    <input type="file" id="cameraInput" accept="image/*" capture="environment">
+    <input type="file" id="galleryInput" accept="image/*">
+
+    <div class="preview-container" id="previewContainer">
+      <img id="previewImg" alt="Book page">
+      <canvas class="highlights-overlay" id="highlightCanvas"></canvas>
+    </div>
+
+    <div class="status" id="status">Take a photo or pick from gallery to begin</div>
+  </div>
+
+  <div class="results-section" id="resultsSection" style="display:none">
+    <div class="result-label">Extracted Text</div>
+    <div class="extracted-text" id="extractedText"></div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="chips-label">Quick-Find (tap to search)</div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<!-- Tesseract OCR -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+
+<script>
+const QUOTES = [
+  "The handful of people in this town with background",
+  "It's a sin to kill a mockingbird",
+  "Simply because we were licked a hundred years before we started",
+  "Atticus Finch is the same in his house as he is on the public streets",
+  "You never really understand a person until you consider things from his point of view",
+  "Courage is not a man with a gun in his hand",
+  "The one thing that doesn't abide by majority rule is a person's conscience",
+  "In our courts all men are created equal",
+  "Maycomb's usual disease",
+  "I guess Tom was tired of white men's chances",
+  "Miss Jean Louise, stand up. Your father's passin'",
+  "Guilty guilty guilty",
+  "A mob's always made up of people",
+  "Tom Robinson was probably the only person who was ever decent to her",
+  "If you was a nigger like me, you'd be scared, too",
+  "There's just one kind of folks. Folks.",
+  "It tears him to pieces",
+  "We're making a step — it's just a baby-step",
+  "That's what I thought, too, when I was your age",
+  "Always wanted a smaller house, Jem Finch",
+  "I wanted you to see what real courage is",
+  "She said she was going to leave this world beholden to nothing and nobody",
+  "That tree's as healthy as you are",
+  "Someone inside the house was laughing",
+  "Then whose blanket is that",
+];
+
+let currentText = '';
+let searchQuery = '';
+let imgNaturalW = 0, imgNaturalH = 0;
+let wordData = [];
+
+// Render chips
+const chipsEl = document.getElementById('chips');
+QUOTES.forEach(q => {
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.textContent = '"' + q + '…"';
+  chip.onclick = () => {
+    document.getElementById('searchInput').value = q;
+    searchQuery = q.toLowerCase();
+    highlightInText(currentText);
+    drawHighlights();
+    // deselect others
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  };
+  chipsEl.appendChild(chip);
+});
+
+// File inputs
+document.getElementById('cameraInput').addEventListener('change', e => handleFile(e.target.files[0]));
+document.getElementById('galleryInput').addEventListener('change', e => handleFile(e.target.files[0]));
+
+// Search input
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  if (currentText) {
+    highlightInText(currentText);
+    drawHighlights();
+  }
+});
+
+function handleFile(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = document.getElementById('previewImg');
+  img.onload = () => {
+    imgNaturalW = img.naturalWidth;
+    imgNaturalH = img.naturalHeight;
+    resizeCanvas();
+    runOCR(url);
+  };
+  img.src = url;
+  document.getElementById('previewContainer').classList.add('visible');
+  document.getElementById('status').className = 'status loading';
+  document.getElementById('status').innerHTML = '<span class="spinner"></span>Running OCR…';
+  document.getElementById('resultsSection').style.display = 'none';
+  wordData = [];
+}
+
+function resizeCanvas() {
+  const img = document.getElementById('previewImg');
+  const canvas = document.getElementById('highlightCanvas');
+  canvas.width = img.clientWidth;
+  canvas.height = img.clientHeight;
+}
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('previewContainer').classList.contains('visible')) {
+    resizeCanvas();
+    drawHighlights();
+  }
+});
+
+async function runOCR(url) {
+  try {
+    const worker = await Tesseract.createWorker('eng');
+    const result = await worker.recognize(url);
+    await worker.terminate();
+
+    currentText = result.data.text;
+    wordData = result.data.words || [];
+
+    document.getElementById('resultsSection').style.display = 'flex';
+    document.getElementById('extractedText').classList.add('visible');
+    highlightInText(currentText);
+    drawHighlights();
+
+  } catch(err) {
+    document.getElementById('status').className = 'status notfound';
+    document.getElementById('status').textContent = 'OCR failed. Try a clearer photo.';
+  }
+}
+
+function highlightInText(text) {
+  const el = document.getElementById('extractedText');
+  if (!searchQuery || !text) {
+    el.textContent = text || '';
+    updateStatus(text, false);
+    return;
+  }
+
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(searchQuery);
+
+  if (idx === -1) {
+    el.textContent = text;
+    updateStatus(text, false);
+    return;
+  }
+
+  // Build highlighted HTML
+  let html = '';
+  let pos = 0;
+  let tempLower = lower;
+  let tempText = text;
+  let found = false;
+
+  while (true) {
+    const i = tempLower.indexOf(searchQuery, pos);
+    if (i === -1) {
+      html += escHtml(tempText.slice(pos));
+      break;
+    }
+    found = true;
+    html += escHtml(tempText.slice(pos, i));
+    html += '<mark>' + escHtml(tempText.slice(i, i + searchQuery.length)) + '</mark>';
+    pos = i + searchQuery.length;
+  }
+
+  el.innerHTML = html;
+  updateStatus(text, found);
+
+  // Scroll to first mark
+  const firstMark = el.querySelector('mark');
+  if (firstMark) firstMark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function updateStatus(text, found) {
+  const el = document.getElementById('status');
+  if (!searchQuery) {
+    el.className = 'status';
+    el.textContent = 'OCR complete. Type or tap a quote to find it.';
+    return;
+  }
+  if (found) {
+    el.className = 'status found';
+    el.textContent = '✓ Found! Highlighted in text and image below.';
+  } else {
+    el.className = 'status notfound';
+    el.textContent = '✗ Not found on this page. Try a different photo.';
+  }
+}
+
+function drawHighlights() {
+  const canvas = document.getElementById('highlightCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!searchQuery || !wordData.length) return;
+
+  const img = document.getElementById('previewImg');
+  const scaleX = img.clientWidth / imgNaturalW;
+  const scaleY = img.clientHeight / imgNaturalH;
+
+  // Find words matching query tokens
+  const tokens = searchQuery.split(/\s+/).filter(t => t.length > 2);
+  if (!tokens.length) return;
+
+  // Group consecutive matching words
+  let matchGroups = [];
+  let i = 0;
+  while (i < wordData.length) {
+    // Try to match as many consecutive tokens as possible starting here
+    let matched = [];
+    let wi = i;
+    let ti = 0;
+    while (ti < tokens.length && wi < wordData.length) {
+      const wText = (wordData[wi].text || '').toLowerCase().replace(/[^a-z0-9']/g,'');
+      const token = tokens[ti].replace(/[^a-z0-9']/g,'');
+      if (wText.includes(token) || token.includes(wText)) {
+        matched.push(wordData[wi]);
+        ti++;
+        wi++;
+      } else {
+        break;
+      }
+    }
+    if (matched.length >= Math.min(2, tokens.length)) {
+      matchGroups.push(matched);
+      i = wi;
+    } else {
+      i++;
+    }
+  }
+
+  if (!matchGroups.length) return;
+
+  // Draw highlight boxes
+  ctx.fillStyle = 'rgba(232, 200, 74, 0.3)';
+  ctx.strokeStyle = '#e8c84a';
+  ctx.lineWidth = 2;
+
+  matchGroups.forEach(group => {
+    const bbox = group.reduce((acc, w) => {
+      const b = w.bbox;
+      return {
+        x0: Math.min(acc.x0, b.x0),
+        y0: Math.min(acc.y0, b.y0),
+        x1: Math.max(acc.x1, b.x1),
+        y1: Math.max(acc.y1, b.y1),
+      };
+    }, { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
+
+    const pad = 4;
+    const x = (bbox.x0 - pad) * scaleX;
+    const y = (bbox.y0 - pad) * scaleY;
+    const w = (bbox.x1 - bbox.x0 + pad * 2) * scaleX;
+    const h = (bbox.y1 - bbox.y0 + pad * 2) * scaleY;
+
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  });
+}
+
+function clearAll() {
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  currentText = '';
+  wordData = [];
+  document.getElementById('previewContainer').classList.remove('visible');
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('extractedText').classList.remove('visible');
+  document.getElementById('extractedText').textContent = '';
+  document.getElementById('status').className = 'status';
+  document.getElementById('status').textContent = 'Take a photo or pick from gallery to begin';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  const canvas = document.getElementById('highlightCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('cameraInput').value = '';
+  document.getElementById('galleryInput').value = '';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
