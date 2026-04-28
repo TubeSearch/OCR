@@ -3,621 +3,1036 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OCR Phrase Finder</title>
+<title>OCR Phrase Finder v2</title>
 <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
-  :root {
-    --bg: #0f0f11;
-    --surface: #1a1a1f;
-    --surface2: #222228;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.15);
-    --text: #f0eff5;
-    --muted: #888798;
-    --accent: #7c6ef5;
-    --accent-glow: rgba(124,110,245,0.25);
-    --highlight: rgba(255, 214, 0, 0.45);
-    --highlight-border: rgba(255, 214, 0, 0.9);
-    --success: #3ecf8e;
-    --danger: #f06b6b;
-    --radius: 12px;
-    --font: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
+:root {
+  --bg: #0c0c0e;
+  --s1: #141416;
+  --s2: #1c1c20;
+  --s3: #242428;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #eeedf5;
+  --muted: #7a7990;
+  --faint: #3a3a44;
+  --accent: #6c63ff;
+  --accent-dim: rgba(108,99,255,0.18);
+  --green: #3ecf8e;
+  --green-dim: rgba(62,207,142,0.15);
+  --amber: #f5a623;
+  --amber-dim: rgba(245,166,35,0.15);
+  --red: #f06b6b;
+  --red-dim: rgba(240,107,107,0.15);
+  --cyan: #4ecdc4;
+  --r: 10px;
+  --font: 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 0;
+}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem 1rem 4rem;
-  }
+/* ── TOP BAR ── */
+#topbar {
+  grid-column: 1 / -1;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 
-  header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
+#topbar h1 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
 
-  header h1 {
-    font-size: 2rem;
-    font-weight: 600;
-    letter-spacing: -0.03em;
-    background: linear-gradient(135deg, #fff 30%, var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+#topbar h1 span { color: var(--accent); }
 
-  header p {
-    color: var(--muted);
-    font-size: 0.9rem;
-    margin-top: 0.4rem;
-  }
+.badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.5rem;
-    width: 100%;
-    max-width: 820px;
-    margin-bottom: 1.25rem;
-  }
+/* ── LEFT PANEL ── */
+#left {
+  background: var(--s1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  height: calc(100vh - 47px);
+}
 
-  .card-title {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 1rem;
-  }
+.section {
+  padding: 1.1rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+}
 
-  /* Drop zone */
-  #drop-zone {
-    border: 1.5px dashed var(--border2);
-    border-radius: 10px;
-    padding: 2.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    position: relative;
-  }
+.section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
-  #drop-zone:hover, #drop-zone.dragover {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-  }
+.section-label .dot-label {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: inline-block;
+}
 
-  #drop-zone input[type="file"] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-  }
+/* Drop zone */
+#drop-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: 8px;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+#drop-zone:hover, #drop-zone.over { border-color: var(--accent); background: var(--accent-dim); }
+#drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+#drop-zone .dz-icon { font-size: 1.6rem; display: block; margin-bottom: 0.4rem; }
+#drop-zone p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+#drop-zone strong { color: var(--text); }
+#file-name { font-size: 0.72rem; color: var(--green); margin-top: 0.5rem; word-break: break-all; display: none; }
 
-  #drop-zone .icon {
-    font-size: 2rem;
-    margin-bottom: 0.6rem;
-    display: block;
-  }
+/* Mode switcher */
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
 
-  #drop-zone p { color: var(--muted); font-size: 0.9rem; }
-  #drop-zone strong { color: var(--text); }
+.mode-btn {
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 0.65rem 0.5rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  color: var(--muted);
+}
+.mode-btn:hover { border-color: var(--accent); color: var(--text); }
+.mode-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.mode-btn .mode-icon { font-size: 1.1rem; display: block; margin-bottom: 0.3rem; }
+.mode-btn .mode-name { font-size: 0.72rem; font-weight: 600; display: block; }
+.mode-btn .mode-desc { font-size: 0.62rem; color: inherit; opacity: 0.7; display: block; margin-top: 0.15rem; line-height: 1.3; }
 
-  /* Search row */
-  .search-row {
-    display: flex;
-    gap: 0.75rem;
-    align-items: stretch;
-  }
+/* Search */
+#phrase-input {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 0.6rem 0.8rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 0.5rem;
+}
+#phrase-input:focus { border-color: var(--accent); }
+#phrase-input::placeholder { color: var(--faint); }
+#phrase-input:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  input[type="text"] {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    padding: 0.7rem 1rem;
-    color: var(--text);
-    font-size: 0.95rem;
-    font-family: var(--font);
-    outline: none;
-    transition: border-color 0.2s;
-  }
+.search-opts { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.7rem; }
+label.tog { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--muted); cursor: pointer; }
+label.tog input[type="checkbox"] { accent-color: var(--accent); width: 13px; height: 13px; }
 
-  input[type="text"]:focus {
-    border-color: var(--accent);
-  }
+#search-btn {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  padding: 0.65rem;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: opacity 0.15s;
+}
+#search-btn:hover { opacity: 0.85; }
+#search-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  input[type="text"]::placeholder { color: var(--muted); }
+#match-result {
+  font-size: 0.78rem;
+  margin-top: 0.55rem;
+  min-height: 1.1rem;
+  color: var(--muted);
+}
 
-  button {
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    padding: 0.7rem 1.4rem;
-    color: #fff;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: var(--font);
-    transition: opacity 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
+/* ── PIPELINE (BTS) ── */
+#pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 
-  button:hover { opacity: 0.88; }
-  button:active { transform: scale(0.97); }
-  button:disabled { opacity: 0.35; cursor: not-allowed; }
+.pipe-step {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+.pipe-step.running { border-color: var(--accent); }
+.pipe-step.done { border-color: var(--green); }
+.pipe-step.skip { opacity: 0.4; }
 
-  /* Options row */
-  .options-row {
-    display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    margin-top: 0.9rem;
-  }
+.pipe-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+}
 
-  label.toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--muted);
-    cursor: pointer;
-    user-select: none;
-  }
+.pipe-num {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.pipe-step.running .pipe-num { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); animation: ppulse 0.8s infinite; }
+.pipe-step.done .pipe-num { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+@keyframes ppulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  label.toggle input[type="checkbox"] {
-    accent-color: var(--accent);
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
-  }
+.pipe-title { font-size: 0.75rem; font-weight: 600; color: var(--text); flex: 1; }
+.pipe-time { font-size: 0.65rem; color: var(--muted); font-family: var(--mono); }
 
-  /* Status bar */
-  #status-bar {
-    font-size: 0.82rem;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    min-height: 1.5rem;
-    margin-top: 0.5rem;
-  }
+.pipe-detail {
+  padding: 0 0.7rem 0.55rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.6;
+  font-family: var(--mono);
+  display: none;
+}
+.pipe-step.done .pipe-detail, .pipe-step.running .pipe-detail { display: block; }
 
-  .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-  }
+.pipe-detail .kv { display: flex; gap: 0.5rem; }
+.pipe-detail .k { color: var(--faint); min-width: 80px; }
+.pipe-detail .v { color: var(--cyan); }
+.pipe-detail .v.good { color: var(--green); }
+.pipe-detail .v.warn { color: var(--amber); }
+.pipe-detail .v.bad { color: var(--red); }
 
-  .dot.active { background: var(--accent); animation: pulse 1s infinite; }
-  .dot.ok { background: var(--success); }
-  .dot.err { background: var(--danger); }
+/* Canvas preview in pipeline */
+.pipe-canvas-wrap {
+  margin: 0.4rem 0.7rem 0.55rem;
+  border-radius: 4px;
+  overflow: hidden;
+  max-height: 80px;
+  background: #000;
+  display: none;
+}
+.pipe-step.done .pipe-canvas-wrap { display: block; }
+.pipe-canvas-wrap canvas { width: 100%; height: auto; display: block; }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
-  }
+/* Progress bar inside step */
+.pipe-progress {
+  height: 2px;
+  background: var(--border);
+  margin: 0 0.7rem 0.6rem;
+  border-radius: 1px;
+  display: none;
+}
+.pipe-step.running .pipe-progress { display: block; }
+.pipe-progress-inner {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  width: 0%;
+  transition: width 0.3s;
+}
 
-  /* Canvas area */
-  #canvas-wrap {
-    position: relative;
-    display: inline-block;
-    max-width: 100%;
-    border-radius: 8px;
-    overflow: hidden;
-    line-height: 0;
-  }
+/* ── RIGHT PANEL ── */
+#right {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 47px);
+  overflow: hidden;
+}
 
-  #canvas-wrap canvas {
-    max-width: 100%;
-    display: block;
-    border-radius: 8px;
-  }
+#view-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+  padding: 0 1rem;
+  gap: 0;
+}
+.vtab {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.vtab:hover { color: var(--text); }
+.vtab.active { color: var(--text); border-bottom-color: var(--accent); }
 
-  #overlay-canvas {
-    position: absolute;
-    top: 0; left: 0;
-    pointer-events: none;
-    border-radius: 8px;
-  }
+#view-panels { flex: 1; overflow: hidden; position: relative; }
 
-  #image-section {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
+.vpanel {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  display: none;
+  padding: 1.25rem;
+}
+.vpanel.active { display: flex; flex-direction: column; align-items: center; }
 
-  #match-count {
-    font-size: 0.85rem;
-    color: var(--muted);
-    text-align: center;
-  }
+/* Image viewer */
+#canvas-wrap {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  max-width: 100%;
+}
+#canvas-wrap canvas { display: block; max-width: 100%; }
+#overlay-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
 
-  #match-count strong { color: var(--text); }
+#empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  height: 100%;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+#empty-state .big { font-size: 3rem; }
 
-  /* Recognized text preview */
-  #ocr-text-preview {
-    font-size: 0.78rem;
-    color: var(--muted);
-    font-family: 'Menlo', 'Consolas', monospace;
-    line-height: 1.6;
-    max-height: 100px;
-    overflow-y: auto;
-    border-top: 1px solid var(--border);
-    padding-top: 0.75rem;
-    margin-top: 0.75rem;
-    white-space: pre-wrap;
-    display: none;
-  }
+/* OCR text panel */
+#text-panel {
+  width: 100%;
+  max-width: 780px;
+}
+#ocr-text-output {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--text);
+  min-height: 200px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#ocr-text-output .ocr-word {
+  display: inline;
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: default;
+  transition: background 0.1s;
+}
+#ocr-text-output .ocr-word:hover { background: var(--accent-dim); }
+#ocr-text-output .ocr-word.matched { background: rgba(255,214,0,0.35); outline: 1px solid rgba(255,195,0,0.6); border-radius: 3px; }
+#ocr-stats { display: flex; gap: 1rem; margin-top: 0.8rem; flex-wrap: wrap; }
+.stat-chip {
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.stat-chip span { color: var(--text); }
 
-  /* Progress bar */
-  #progress-wrap {
-    width: 100%;
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-    display: none;
-  }
+/* Processed image panel */
+#proc-panel { gap: 1rem; }
+.proc-row { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; width: 100%; }
+.proc-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+.proc-card-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.5rem 0.7rem;
+  background: var(--s2);
+  border-bottom: 1px solid var(--border);
+}
+.proc-card canvas { width: 100%; height: auto; display: block; }
 
-  #progress-bar {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 2px;
-    width: 0%;
-    transition: width 0.3s;
-  }
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>OCR Phrase Finder</h1>
-  <p>Upload an image · OCR with Tesseract · Highlight any phrase like Apple Photos</p>
-</header>
-
-<div class="card">
-  <div class="card-title">Image</div>
-  <div id="drop-zone">
-    <input type="file" accept="image/*" id="file-input">
-    <span class="icon">🖼</span>
-    <p><strong>Drop an image here</strong> or click to browse</p>
-    <p style="margin-top:0.3rem;font-size:0.78rem;">PNG, JPG, WEBP, BMP — processed entirely in your browser</p>
-  </div>
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>OCR Phrase <span>Finder</span></h1>
+  <div class="badge">v2</div>
+  <div id="global-status" style="margin-left:auto;font-size:0.75rem;color:var(--muted);">Load an image to begin</div>
 </div>
 
-<div class="card">
-  <div class="card-title">Search</div>
-  <div class="search-row">
-    <input type="text" id="phrase-input" placeholder="Type a word or phrase to highlight…" disabled>
-    <button id="search-btn" disabled>Find</button>
-  </div>
-  <div class="options-row">
-    <label class="toggle">
-      <input type="checkbox" id="case-sensitive"> Case-sensitive
-    </label>
-    <label class="toggle">
-      <input type="checkbox" id="show-all-words"> Show all word boxes
-    </label>
-    <label class="toggle">
-      <input type="checkbox" id="whitelist-only" checked> Use original char whitelist
-    </label>
-  </div>
-  <div id="progress-wrap"><div id="progress-bar"></div></div>
-  <div id="status-bar"><div class="dot" id="status-dot"></div><span id="status-text">Load an image to begin.</span></div>
-</div>
+<!-- LEFT PANEL -->
+<div id="left">
 
-<div class="card" id="image-section">
-  <div class="card-title" id="result-label">Result</div>
-  <div style="display:flex;justify-content:center;">
-    <div id="canvas-wrap">
-      <canvas id="main-canvas"></canvas>
-      <canvas id="overlay-canvas"></canvas>
+  <!-- Image upload -->
+  <div class="section">
+    <div class="section-label"><span class="dot-label"></span>Image</div>
+    <div id="drop-zone">
+      <input type="file" accept="image/*" id="file-input">
+      <span class="dz-icon">🖼</span>
+      <p><strong>Drop image here</strong> or click to browse</p>
+    </div>
+    <div id="file-name"></div>
+  </div>
+
+  <!-- Mode -->
+  <div class="section">
+    <div class="section-label"><span class="dot-label"></span>OCR Mode</div>
+    <div class="mode-grid">
+      <div class="mode-btn" id="mode-doc" onclick="setMode('document')">
+        <span class="mode-icon">📄</span>
+        <span class="mode-name">Document</span>
+        <span class="mode-desc">Clean text, books, PDFs. No whitelist, minimal processing.</span>
+      </div>
+      <div class="mode-btn active" id="mode-label" onclick="setMode('label')">
+        <span class="mode-icon">🏷</span>
+        <span class="mode-name">Label</span>
+        <span class="mode-desc">Product labels. Whitelist + sharpening kernel from original C++.</span>
+      </div>
     </div>
   </div>
-  <div id="match-count"></div>
-  <div id="ocr-text-preview"></div>
+
+  <!-- Search -->
+  <div class="section">
+    <div class="section-label"><span class="dot-label"></span>Search</div>
+    <input type="text" id="phrase-input" placeholder="Type phrase to highlight…" disabled>
+    <div class="search-opts">
+      <label class="tog"><input type="checkbox" id="case-cb"> Case-sensitive</label>
+      <label class="tog"><input type="checkbox" id="show-words-cb"> Show all word boxes</label>
+    </div>
+    <button id="search-btn" disabled>Find in Image</button>
+    <div id="match-result"></div>
+  </div>
+
+  <!-- Pipeline (BTS) -->
+  <div class="section" style="flex:1;overflow-y:auto;">
+    <div class="section-label"><span class="dot-label"></span>Behind the Scenes</div>
+    <div id="pipeline">
+
+      <div class="pipe-step" id="step-load">
+        <div class="pipe-header">
+          <div class="pipe-num">1</div>
+          <div class="pipe-title">Image Load</div>
+          <div class="pipe-time" id="t-load"></div>
+        </div>
+        <div class="pipe-detail" id="d-load"></div>
+      </div>
+
+      <div class="pipe-step" id="step-preproc">
+        <div class="pipe-header">
+          <div class="pipe-num">2</div>
+          <div class="pipe-title">Preprocessing</div>
+          <div class="pipe-time" id="t-preproc"></div>
+        </div>
+        <div class="pipe-detail" id="d-preproc"></div>
+        <div class="pipe-canvas-wrap" id="prev-preproc"><canvas id="preproc-thumb"></canvas></div>
+      </div>
+
+      <div class="pipe-step" id="step-tess">
+        <div class="pipe-header">
+          <div class="pipe-num">3</div>
+          <div class="pipe-title">Tesseract OCR</div>
+          <div class="pipe-time" id="t-tess"></div>
+        </div>
+        <div class="pipe-progress"><div class="pipe-progress-inner" id="tess-prog"></div></div>
+        <div class="pipe-detail" id="d-tess"></div>
+      </div>
+
+      <div class="pipe-step" id="step-parse">
+        <div class="pipe-header">
+          <div class="pipe-num">4</div>
+          <div class="pipe-title">Word Parsing</div>
+          <div class="pipe-time" id="t-parse"></div>
+        </div>
+        <div class="pipe-detail" id="d-parse"></div>
+      </div>
+
+      <div class="pipe-step" id="step-search">
+        <div class="pipe-header">
+          <div class="pipe-num">5</div>
+          <div class="pipe-title">Phrase Match</div>
+          <div class="pipe-time" id="t-search"></div>
+        </div>
+        <div class="pipe-detail" id="d-search"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="right">
+  <div id="view-tabs">
+    <div class="vtab active" onclick="switchTab('image')">Result Image</div>
+    <div class="vtab" onclick="switchTab('text')">OCR Text</div>
+    <div class="vtab" onclick="switchTab('proc')">Processing Stages</div>
+  </div>
+  <div id="view-panels">
+
+    <div class="vpanel active" id="tab-image">
+      <div id="empty-state">
+        <div class="big">👁</div>
+        <div>Load an image to see results here</div>
+      </div>
+      <div id="canvas-wrap" style="display:none;">
+        <canvas id="main-canvas"></canvas>
+        <canvas id="overlay-canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="vpanel" id="tab-text">
+      <div id="text-panel">
+        <div id="ocr-text-output" style="color:var(--muted);font-style:italic;">OCR output will appear here…</div>
+        <div id="ocr-stats"></div>
+      </div>
+    </div>
+
+    <div class="vpanel" id="tab-proc">
+      <div class="proc-row" id="proc-cards">
+        <div style="color:var(--muted);font-size:0.85rem;">Processing stage previews will appear here after running OCR.</div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <script>
-const fileInput    = document.getElementById('file-input');
-const dropZone     = document.getElementById('drop-zone');
-const phraseInput  = document.getElementById('phrase-input');
-const searchBtn    = document.getElementById('search-btn');
-const caseCb       = document.getElementById('case-sensitive');
-const showAllCb    = document.getElementById('show-all-words');
-const whitelistCb  = document.getElementById('whitelist-only');
-const mainCanvas   = document.getElementById('main-canvas');
-const overlayCanvas= document.getElementById('overlay-canvas');
-const imageSection = document.getElementById('image-section');
-const matchCount   = document.getElementById('match-count');
-const statusDot    = document.getElementById('status-dot');
-const statusText   = document.getElementById('status-text');
-const progressWrap = document.getElementById('progress-wrap');
-const progressBar  = document.getElementById('progress-bar');
-const ocrPreview   = document.getElementById('ocr-text-preview');
-
+// ── State ──
 let ocrWords = [];
-let currentImage = null;
+let currentImgEl = null;
+let currentMode = 'label';
+const timers = {};
 
-function setStatus(msg, state = 'idle') {
-  statusText.textContent = msg;
-  statusDot.className = 'dot' + (state === 'busy' ? ' active' : state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
+// ── Helpers ──
+function t(id) { return document.getElementById(id); }
+function gstatus(msg) { t('global-status').textContent = msg; }
+
+function stepState(id, state) {
+  const el = t('step-' + id);
+  el.className = 'pipe-step' + (state ? ' ' + state : '');
 }
 
-function setProgress(pct) {
-  if (pct <= 0) { progressWrap.style.display = 'none'; return; }
-  progressWrap.style.display = 'block';
-  progressBar.style.width = pct + '%';
+function stepDetail(id, html) { t('d-' + id).innerHTML = html; }
+function stepTime(id, ms) { t('t-' + id).textContent = ms < 1000 ? ms + 'ms' : (ms/1000).toFixed(1) + 's'; }
+
+function kv(k, v, cls='') {
+  return `<div class="kv"><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`;
 }
 
-// Apply the same preprocessing as LabelOCR.cpp:
-// 1. medianBlur (3x3 median)
-// 2. High-pass sharpening kernel (5x5)
-// 3. Convert to grayscale
-function preProcess(imgCanvas) {
-  const w = imgCanvas.width, h = imgCanvas.height;
-  const ctx = imgCanvas.getContext('2d');
-  const src = ctx.getImageData(0, 0, w, h);
-  const data = src.data;
+function startTimer(id) { timers[id] = performance.now(); }
+function endTimer(id) { return Math.round(performance.now() - timers[id]); }
 
-  // 1. 3x3 median blur (per channel)
-  const med = new Uint8ClampedArray(data.length);
-  const neighbors = [];
+// ── Mode ──
+function setMode(m) {
+  currentMode = m;
+  t('mode-doc').className = 'mode-btn' + (m === 'document' ? ' active' : '');
+  t('mode-label').className = 'mode-btn' + (m === 'label' ? ' active' : '');
+  if (currentImgEl) runOCR(currentImgEl);
+}
+
+// ── Tabs ──
+function switchTab(name) {
+  document.querySelectorAll('.vtab').forEach((el,i) => {
+    const names = ['image','text','proc'];
+    el.className = 'vtab' + (names[i] === name ? ' active' : '');
+  });
+  document.querySelectorAll('.vpanel').forEach(el => el.className = 'vpanel');
+  t('tab-' + name).className = 'vpanel active';
+}
+
+// ── Preprocessing: mirror LabelOCR.cpp ──
+function medianBlur3x3(data, w, h) {
+  const out = new Uint8ClampedArray(data.length);
+  const buf = [];
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       for (let c = 0; c < 3; c++) {
-        neighbors.length = 0;
-        for (let dy = -1; dy <= 1; dy++) {
+        buf.length = 0;
+        for (let dy = -1; dy <= 1; dy++)
           for (let dx = -1; dx <= 1; dx++) {
-            const nx = Math.min(Math.max(x + dx, 0), w - 1);
-            const ny = Math.min(Math.max(y + dy, 0), h - 1);
-            neighbors.push(data[(ny * w + nx) * 4 + c]);
+            const nx = Math.min(Math.max(x+dx,0),w-1);
+            const ny = Math.min(Math.max(y+dy,0),h-1);
+            buf.push(data[(ny*w+nx)*4+c]);
           }
-        }
-        neighbors.sort((a, b) => a - b);
-        med[(y * w + x) * 4 + c] = neighbors[4];
+        buf.sort((a,b)=>a-b);
+        out[(y*w+x)*4+c] = buf[4];
       }
-      med[(y * w + x) * 4 + 3] = 255;
+      out[(y*w+x)*4+3] = 255;
     }
   }
-
-  // 2. 5x5 high-pass sharpening kernel (same as LabelOCR.cpp):
-  // center = 25, all others = -1
-  const kernel = Array(25).fill(-1); kernel[12] = 25;
-  const sharp = new Uint8ClampedArray(data.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let c = 0; c < 3; c++) {
-        let sum = 0;
-        for (let ky = -2; ky <= 2; ky++) {
-          for (let kx = -2; kx <= 2; kx++) {
-            const nx = Math.min(Math.max(x + kx, 0), w - 1);
-            const ny = Math.min(Math.max(y + ky, 0), h - 1);
-            sum += med[(ny * w + nx) * 4 + c] * kernel[(ky + 2) * 5 + (kx + 2)];
-          }
-        }
-        sharp[(y * w + x) * 4 + c] = Math.min(255, Math.max(0, sum));
-      }
-      sharp[(y * w + x) * 4 + 3] = 255;
-    }
-  }
-
-  // 3. Convert to grayscale (BT.601 luminance)
-  const gray = new Uint8ClampedArray(data.length);
-  for (let i = 0; i < w * h; i++) {
-    const r = sharp[i * 4], g = sharp[i * 4 + 1], b = sharp[i * 4 + 2];
-    const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-    gray[i * 4] = gray[i * 4 + 1] = gray[i * 4 + 2] = lum;
-    gray[i * 4 + 3] = 255;
-  }
-
-  const out = new ImageData(gray, w, h);
   return out;
 }
 
+function highPassSharpen(data, w, h) {
+  const kernel = Array(25).fill(-1); kernel[12] = 25;
+  const out = new Uint8ClampedArray(data.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let c = 0; c < 3; c++) {
+        let s = 0;
+        for (let ky = -2; ky <= 2; ky++)
+          for (let kx = -2; kx <= 2; kx++) {
+            const nx = Math.min(Math.max(x+kx,0),w-1);
+            const ny = Math.min(Math.max(y+ky,0),h-1);
+            s += data[(ny*w+nx)*4+c] * kernel[(ky+2)*5+(kx+2)];
+          }
+        out[(y*w+x)*4+c] = Math.min(255,Math.max(0,s));
+      }
+      out[(y*w+x)*4+3]=255;
+    }
+  }
+  return out;
+}
+
+function toGrayscale(data, w, h) {
+  const out = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < w*h; i++) {
+    const lum = Math.round(0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2]);
+    out[i*4]=out[i*4+1]=out[i*4+2]=lum; out[i*4+3]=255;
+  }
+  return out;
+}
+
+function makeThumb(imgData, w, h, targetId) {
+  const c = t(targetId);
+  const maxW = 260;
+  const scale = Math.min(1, maxW / w);
+  c.width = Math.round(w * scale);
+  c.height = Math.round(h * scale);
+  const tmpC = document.createElement('canvas');
+  tmpC.width = w; tmpC.height = h;
+  tmpC.getContext('2d').putImageData(imgData, 0, 0);
+  c.getContext('2d').drawImage(tmpC, 0, 0, c.width, c.height);
+}
+
+function makeProcCard(label, imgData, w, h) {
+  const card = document.createElement('div');
+  card.className = 'proc-card';
+  card.innerHTML = `<div class="proc-card-label">${label}</div>`;
+  const c = document.createElement('canvas');
+  const maxW = 300;
+  const scale = Math.min(1, maxW / w);
+  c.width = Math.round(w * scale);
+  c.height = Math.round(h * scale);
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  tmp.getContext('2d').putImageData(imgData, 0, 0);
+  c.getContext('2d').drawImage(tmp, 0, 0, c.width, c.height);
+  card.appendChild(c);
+  return card;
+}
+
+// ── Main OCR pipeline ──
 async function runOCR(imgEl) {
-  setStatus('Preprocessing image…', 'busy');
-  setProgress(10);
+  currentImgEl = imgEl;
+  ocrWords = [];
+  t('phrase-input').disabled = true;
+  t('search-btn').disabled = true;
+  t('match-result').innerHTML = '';
+  clearOverlay();
+  t('ocr-text-output').innerHTML = '<span style="color:var(--muted);font-style:italic;">Running OCR…</span>';
+  t('ocr-stats').innerHTML = '';
+  t('proc-cards').innerHTML = '';
 
-  // Draw original to canvas
-  mainCanvas.width = imgEl.naturalWidth;
-  mainCanvas.height = imgEl.naturalHeight;
-  const ctx = mainCanvas.getContext('2d');
-  ctx.drawImage(imgEl, 0, 0);
+  // Reset all steps
+  ['load','preproc','tess','parse','search'].forEach(id => {
+    stepState(id, '');
+    stepDetail(id, '');
+    stepTime(id, '');
+    if (t('d-'+id)) t('d-'+id).style.display = '';
+  });
 
-  // Size overlay to match
-  overlayCanvas.width = mainCanvas.width;
-  overlayCanvas.height = mainCanvas.height;
+  const isDoc = currentMode === 'document';
+  const w = imgEl.naturalWidth, h = imgEl.naturalHeight;
 
-  // Preprocess (mirror LabelOCR.cpp)
-  const processedData = preProcess(mainCanvas);
+  // ── STEP 1: Load ──
+  stepState('load', 'running');
+  startTimer('load');
 
-  // Redraw original (for display)
-  ctx.drawImage(imgEl, 0, 0);
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = w; srcCanvas.height = h;
+  const sctx = srcCanvas.getContext('2d');
+  sctx.drawImage(imgEl, 0, 0);
+  const srcData = sctx.getImageData(0, 0, w, h);
 
-  // Build a temp canvas with processed data for Tesseract
-  const tmpCanvas = document.createElement('canvas');
-  tmpCanvas.width = mainCanvas.width;
-  tmpCanvas.height = mainCanvas.height;
-  tmpCanvas.getContext('2d').putImageData(processedData, 0, 0);
+  // Show original in proc panel
+  const origCard = makeProcCard('1. Original', srcData, w, h);
 
-  setStatus('Running Tesseract OCR…', 'busy');
-  setProgress(30);
+  const loadMs = endTimer('load');
+  stepState('load', 'done');
+  stepTime('load', loadMs);
+  stepDetail('load', [
+    kv('width', w + 'px'),
+    kv('height', h + 'px'),
+    kv('pixels', (w*h).toLocaleString()),
+    kv('mode', isDoc ? 'Document' : 'Label', isDoc ? 'good' : 'warn'),
+  ].join(''));
 
+  // ── STEP 2: Preprocessing ──
+  stepState('preproc', 'running');
+  startTimer('preproc');
+  gstatus('Preprocessing…');
+
+  let procData;
+  let procDetails = '';
+  const procCards = [origCard];
+
+  if (isDoc) {
+    // Document mode: grayscale only — image is already clean
+    const gray = toGrayscale(srcData.data, w, h);
+    procData = new ImageData(gray, w, h);
+    procCards.push(makeProcCard('2. Grayscale only', procData, w, h));
+    procDetails = [
+      kv('median blur', 'skipped', 'good'),
+      kv('sharpen kernel', 'skipped', 'good'),
+      kv('grayscale', 'applied', 'good'),
+      kv('reason', 'clean image — no sharpening needed'),
+    ].join('');
+  } else {
+    // Label mode: full pipeline from LabelOCR.cpp
+    const afterMedian = medianBlur3x3(srcData.data, w, h);
+    const medImgData = new ImageData(new Uint8ClampedArray(afterMedian), w, h);
+    procCards.push(makeProcCard('2. Median blur 3×3', medImgData, w, h));
+
+    const afterSharp = highPassSharpen(afterMedian, w, h);
+    const sharpImgData = new ImageData(new Uint8ClampedArray(afterSharp), w, h);
+    procCards.push(makeProcCard('3. High-pass sharpen (5×5)', sharpImgData, w, h));
+
+    const afterGray = toGrayscale(afterSharp, w, h);
+    procData = new ImageData(afterGray, w, h);
+    procCards.push(makeProcCard('4. Grayscale', procData, w, h));
+
+    procDetails = [
+      kv('step 1', 'medianBlur 3×3', 'good'),
+      kv('step 2', 'HPKernel 5×5 (center=25)'),
+      kv('step 3', 'cvtColor → GRAY'),
+      kv('whitelist', 'A-Z 0-9 -', 'warn'),
+    ].join('');
+  }
+
+  // Show proc stages
+  t('proc-cards').innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'proc-row';
+  procCards.forEach(c => row.appendChild(c));
+  t('proc-cards').appendChild(row);
+
+  // Show thumbnail in pipeline
+  makeThumb(procData, w, h, 'preproc-thumb');
+  t('prev-preproc').style.display = 'block';
+
+  const preprocMs = endTimer('preproc');
+  stepState('preproc', 'done');
+  stepTime('preproc', preprocMs);
+  stepDetail('preproc', procDetails);
+
+  // Build canvas for Tesseract
+  const tessCanvas = document.createElement('canvas');
+  tessCanvas.width = w; tessCanvas.height = h;
+  tessCanvas.getContext('2d').putImageData(procData, 0, 0);
+
+  // ── STEP 3: Tesseract ──
+  stepState('tess', 'running');
+  startTimer('tess');
+  gstatus('Running Tesseract OCR…');
+
+  const charWhitelist = isDoc ? '' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
+  const psm = '6'; // PSM_SINGLE_BLOCK for both modes
+
+  let tessResult;
   try {
-    // Mirror the C++ Tesseract config exactly:
-    // OEM_DEFAULT, PSM_SINGLE_BLOCK, char whitelist
-    const charWhitelist = whitelistCb.checked
-      ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
-      : '';
-
     const worker = await Tesseract.createWorker('eng', 1, {
       logger: m => {
         if (m.status === 'recognizing text') {
-          setProgress(30 + Math.round(m.progress * 60));
+          const pct = Math.round(m.progress * 100);
+          t('tess-prog').style.width = pct + '%';
+          gstatus('OCR: ' + pct + '%');
         }
       }
     });
 
     await worker.setParameters({
-      tessedit_pageseg_mode: '6',  // PSM_SINGLE_BLOCK = 6
+      tessedit_pageseg_mode: psm,
       tessedit_char_whitelist: charWhitelist,
     });
 
-    const result = await worker.recognize(tmpCanvas);
+    tessResult = await worker.recognize(tessCanvas);
     await worker.terminate();
-
-    setProgress(95);
-
-    ocrWords = result.data.words.map(w => ({
-      text: w.text.replace(/[?]/g, ''),
-      bbox: w.bbox,
-      conf: w.confidence
-    })).filter(w => w.text.trim().length > 0);
-
-    const fullText = result.data.text;
-    ocrPreview.textContent = fullText.trim();
-    ocrPreview.style.display = 'block';
-
-    setProgress(100);
-    setTimeout(() => setProgress(0), 600);
-
-    phraseInput.disabled = false;
-    searchBtn.disabled = false;
-    phraseInput.focus();
-
-    setStatus(`OCR complete — ${ocrWords.length} words detected.`, 'ok');
-    imageSection.style.display = 'flex';
-    clearHighlights();
-    matchCount.textContent = '';
-
-    // Auto-highlight if phrase already typed
-    if (phraseInput.value.trim()) doSearch();
-
-  } catch (e) {
-    setStatus('OCR failed: ' + e.message, 'err');
-    setProgress(0);
-    console.error(e);
+  } catch(e) {
+    stepState('tess', 'err');
+    stepDetail('tess', kv('error', e.message, 'bad'));
+    gstatus('OCR failed');
+    return;
   }
+
+  const tessMs = endTimer('tess');
+  stepState('tess', 'done');
+  stepTime('tess', tessMs);
+  stepDetail('tess', [
+    kv('engine', 'OEM_DEFAULT'),
+    kv('page seg', 'PSM_SINGLE_BLOCK'),
+    kv('whitelist', charWhitelist || '(all chars)', charWhitelist ? 'warn' : 'good'),
+    kv('confidence', tessResult.data.confidence.toFixed(1) + '%',
+      tessResult.data.confidence > 70 ? 'good' : tessResult.data.confidence > 40 ? 'warn' : 'bad'),
+  ].join(''));
+
+  // ── STEP 4: Word parsing ──
+  stepState('parse', 'running');
+  startTimer('parse');
+
+  ocrWords = tessResult.data.words
+    .map(w => ({ text: w.text.replace(/[?]/g,''), bbox: w.bbox, conf: w.confidence }))
+    .filter(w => w.text.trim().length > 0);
+
+  const avgConf = ocrWords.length
+    ? Math.round(ocrWords.reduce((s,w)=>s+w.conf,0)/ocrWords.length)
+    : 0;
+
+  const lowConf = ocrWords.filter(w => w.conf < 50).length;
+
+  // Draw original image to main canvas
+  t('main-canvas').width = w; t('main-canvas').height = h;
+  t('overlay-canvas').width = w; t('overlay-canvas').height = h;
+  t('main-canvas').getContext('2d').drawImage(imgEl, 0, 0);
+
+  t('empty-state').style.display = 'none';
+  t('canvas-wrap').style.display = 'inline-block';
+
+  // Render OCR text panel with clickable words
+  renderTextPanel(tessResult.data.text, ocrWords);
+
+  // Update stats
+  t('ocr-stats').innerHTML = [
+    `<div class="stat-chip">words: <span>${ocrWords.length}</span></div>`,
+    `<div class="stat-chip">avg conf: <span>${avgConf}%</span></div>`,
+    `<div class="stat-chip">low conf: <span>${lowConf}</span></div>`,
+    `<div class="stat-chip">mode: <span>${isDoc ? 'document' : 'label'}</span></div>`,
+  ].join('');
+
+  const parseMs = endTimer('parse');
+  stepState('parse', 'done');
+  stepTime('parse', parseMs);
+  stepDetail('parse', [
+    kv('words found', ocrWords.length, ocrWords.length > 5 ? 'good' : 'warn'),
+    kv('avg confidence', avgConf + '%', avgConf > 70 ? 'good' : avgConf > 40 ? 'warn' : 'bad'),
+    kv('low conf words', lowConf, lowConf > 5 ? 'bad' : lowConf > 0 ? 'warn' : 'good'),
+    kv('filtered chars', '"?" stripped'),
+  ].join(''));
+
+  stepState('search', '');
+  stepDetail('search', '');
+
+  t('phrase-input').disabled = false;
+  t('search-btn').disabled = false;
+  gstatus(`Ready — ${ocrWords.length} words, ${avgConf}% avg confidence`);
+
+  if (t('phrase-input').value.trim()) doSearch();
 }
 
-function clearHighlights() {
-  const ctx = overlayCanvas.getContext('2d');
-  ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+function renderTextPanel(rawText, words) {
+  if (!words.length) {
+    t('ocr-text-output').textContent = rawText || '(no text detected)';
+    return;
+  }
+  // Build word spans
+  const container = t('ocr-text-output');
+  container.innerHTML = '';
+  words.forEach((w, i) => {
+    const span = document.createElement('span');
+    span.className = 'ocr-word';
+    span.dataset.i = i;
+    span.textContent = w.text;
+    span.title = `conf: ${Math.round(w.conf)}%`;
+    if (w.conf < 50) span.style.color = 'var(--amber)';
+    container.appendChild(span);
+    container.appendChild(document.createTextNode(' '));
+  });
 }
 
+// ── Search ──
 function doSearch() {
-  clearHighlights();
-  const phrase = phraseInput.value.trim();
+  clearOverlay();
+  const phrase = t('phrase-input').value.trim();
+  const caseSen = t('case-cb').checked;
+  const showAll = t('show-words-cb').checked;
 
-  const scaleX = mainCanvas.width / mainCanvas.offsetWidth;
-  const scaleY = mainCanvas.height / mainCanvas.offsetHeight;
+  stepState('search', 'running');
+  startTimer('search');
 
-  const ctx = overlayCanvas.getContext('2d');
-  const allWords = ocrWords;
+  const ctx = t('overlay-canvas').getContext('2d');
 
-  if (showAllCb.checked) {
-    ctx.strokeStyle = 'rgba(124,110,245,0.4)';
-    ctx.lineWidth = 1.5;
-    for (const w of allWords) {
-      ctx.strokeRect(w.bbox.x0, w.bbox.y0, w.bbox.x1 - w.bbox.x0, w.bbox.y1 - w.bbox.y0);
-    }
+  if (showAll) {
+    ctx.strokeStyle = 'rgba(108,99,255,0.35)';
+    ctx.lineWidth = 1;
+    ocrWords.forEach(w => ctx.strokeRect(w.bbox.x0, w.bbox.y0, w.bbox.x1-w.bbox.x0, w.bbox.y1-w.bbox.y0));
   }
 
-  if (!phrase) { matchCount.textContent = ''; return; }
+  // Clear text panel matches
+  document.querySelectorAll('.ocr-word').forEach(el => el.classList.remove('matched'));
 
-  const words = phrase.split(/\s+/);
-  const compare = (a, b) => caseCb.checked ? a === b : a.toLowerCase() === b.toLowerCase();
+  if (!phrase) {
+    stepState('search', '');
+    t('match-result').innerHTML = '';
+    return;
+  }
+
+  const queryWords = phrase.split(/\s+/);
+  const cmp = (a, b) => caseSen ? a === b : a.toLowerCase() === b.toLowerCase();
 
   let matches = 0;
+  const matchedIndices = new Set();
 
-  // Sliding window over ocrWords to find consecutive word sequences
-  for (let i = 0; i <= allWords.length - words.length; i++) {
+  for (let i = 0; i <= ocrWords.length - queryWords.length; i++) {
     let hit = true;
-    for (let j = 0; j < words.length; j++) {
-      if (!compare(allWords[i + j].text, words[j])) { hit = false; break; }
+    for (let j = 0; j < queryWords.length; j++) {
+      if (!cmp(ocrWords[i+j].text, queryWords[j])) { hit = false; break; }
     }
     if (hit) {
       matches++;
-      const group = allWords.slice(i, i + words.length);
-      const x0 = Math.min(...group.map(w => w.bbox.x0));
-      const y0 = Math.min(...group.map(w => w.bbox.y0));
-      const x1 = Math.max(...group.map(w => w.bbox.x1));
-      const y1 = Math.max(...group.map(w => w.bbox.y1));
+      const group = ocrWords.slice(i, i + queryWords.length);
+      for (let j = 0; j < queryWords.length; j++) matchedIndices.add(i+j);
 
+      const x0 = Math.min(...group.map(w=>w.bbox.x0));
+      const y0 = Math.min(...group.map(w=>w.bbox.y0));
+      const x1 = Math.max(...group.map(w=>w.bbox.x1));
+      const y1 = Math.max(...group.map(w=>w.bbox.y1));
       const pad = 4;
 
-      // Yellow highlight fill (like Apple Photos)
-      ctx.fillStyle = 'rgba(255, 214, 0, 0.40)';
+      ctx.fillStyle = 'rgba(255,214,0,0.38)';
       ctx.beginPath();
-      ctx.roundRect(x0 - pad, y0 - pad, (x1 - x0) + pad * 2, (y1 - y0) + pad * 2, 4);
+      ctx.roundRect(x0-pad, y0-pad, (x1-x0)+pad*2, (y1-y0)+pad*2, 4);
       ctx.fill();
 
-      // Bright border
-      ctx.strokeStyle = 'rgba(255, 195, 0, 0.95)';
+      ctx.strokeStyle = 'rgba(255,195,0,0.92)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.roundRect(x0 - pad, y0 - pad, (x1 - x0) + pad * 2, (y1 - y0) + pad * 2, 4);
+      ctx.roundRect(x0-pad, y0-pad, (x1-x0)+pad*2, (y1-y0)+pad*2, 4);
       ctx.stroke();
 
-      // Subtle glow
-      ctx.strokeStyle = 'rgba(255, 214, 0, 0.25)';
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'rgba(255,220,0,0.18)';
+      ctx.lineWidth = 7;
       ctx.beginPath();
-      ctx.roundRect(x0 - pad - 2, y0 - pad - 2, (x1 - x0) + (pad + 2) * 2, (y1 - y0) + (pad + 2) * 2, 6);
+      ctx.roundRect(x0-pad-2, y0-pad-2, (x1-x0)+(pad+2)*2, (y1-y0)+(pad+2)*2, 6);
       ctx.stroke();
     }
   }
 
+  // Highlight in text panel
+  matchedIndices.forEach(i => {
+    const el = document.querySelector(`.ocr-word[data-i="${i}"]`);
+    if (el) el.classList.add('matched');
+  });
+
+  const searchMs = endTimer('search');
+  stepState('search', 'done');
+  stepTime('search', searchMs);
+  stepDetail('search', [
+    kv('query', '"' + phrase + '"'),
+    kv('query words', queryWords.length),
+    kv('matches', matches, matches > 0 ? 'good' : 'bad'),
+    kv('case sensitive', caseSen ? 'yes' : 'no'),
+    kv('algorithm', 'sliding window O(n)'),
+  ].join(''));
+
   if (matches === 0) {
-    matchCount.innerHTML = `<strong style="color:var(--danger)">No matches found</strong> for "${phrase}"`;
+    t('match-result').innerHTML = `<span style="color:var(--red)">No matches</span> for "${phrase}"`;
   } else {
-    matchCount.innerHTML = `<strong style="color:var(--success)">${matches} match${matches > 1 ? 'es' : ''}</strong> found for "<strong>${phrase}</strong>"`;
+    t('match-result').innerHTML = `<span style="color:var(--green)">${matches} match${matches>1?'es':''}</span> — "${phrase}"`;
   }
 }
 
-function loadImage(file) {
+function clearOverlay() {
+  const c = t('overlay-canvas');
+  if (c.width) c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+// ── Events ──
+function loadFile(file) {
   if (!file || !file.type.startsWith('image/')) return;
+  t('file-name').textContent = file.name;
+  t('file-name').style.display = 'block';
   const url = URL.createObjectURL(file);
   const img = new Image();
-  img.onload = () => {
-    currentImage = img;
-    ocrWords = [];
-    phraseInput.disabled = true;
-    searchBtn.disabled = true;
-    matchCount.textContent = '';
-    ocrPreview.style.display = 'none';
-    runOCR(img);
-  };
+  img.onload = () => runOCR(img);
   img.src = url;
 }
 
-fileInput.addEventListener('change', e => loadImage(e.target.files[0]));
+t('file-input').addEventListener('change', e => loadFile(e.target.files[0]));
+t('drop-zone').addEventListener('dragover', e => { e.preventDefault(); t('drop-zone').classList.add('over'); });
+t('drop-zone').addEventListener('dragleave', () => t('drop-zone').classList.remove('over'));
+t('drop-zone').addEventListener('drop', e => { e.preventDefault(); t('drop-zone').classList.remove('over'); loadFile(e.dataTransfer.files[0]); });
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  loadImage(e.dataTransfer.files[0]);
-});
+t('search-btn').addEventListener('click', doSearch);
+t('phrase-input').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+t('show-words-cb').addEventListener('change', () => { if (ocrWords.length) doSearch(); });
+t('case-cb').addEventListener('change', () => { if (ocrWords.length) doSearch(); });
 
-searchBtn.addEventListener('click', doSearch);
-phraseInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-showAllCb.addEventListener('change', () => { if (ocrWords.length) doSearch(); });
-caseCb.addEventListener('change', () => { if (ocrWords.length) doSearch(); });
-whitelistCb.addEventListener('change', () => { if (currentImage) runOCR(currentImage); });
+// Default to Document mode since that's what the user's image is
+setMode('document');
 </script>
 </body>
 </html>
