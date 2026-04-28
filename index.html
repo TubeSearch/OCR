@@ -2,23 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>TKM Sticky Note Finder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR Phrase Finder</title>
+<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap');
-
   :root {
-    --bg: #1a1814;
-    --surface: #242019;
-    --surface2: #2e2a22;
-    --border: #3d3830;
-    --accent: #e8c84a;
-    --accent2: #e87c4a;
-    --text: #f0ead8;
-    --text2: #a09880;
-    --highlight: rgba(232, 200, 74, 0.35);
-    --highlight-border: #e8c84a;
-    --red: #e85a4a;
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #222228;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --text: #f0eff5;
+    --muted: #888798;
+    --accent: #7c6ef5;
+    --accent-glow: rgba(124,110,245,0.25);
+    --highlight: rgba(255, 214, 0, 0.45);
+    --highlight-border: rgba(255, 214, 0, 0.9);
+    --success: #3ecf8e;
+    --danger: #f06b6b;
+    --radius: 12px;
+    --font: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,589 +29,595 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 4rem;
   }
 
   header {
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
+    text-align: center;
+    margin-bottom: 2.5rem;
   }
 
   header h1 {
-    font-family: 'Courier Prime', monospace;
-    font-size: 18px;
-    color: var(--accent);
-    letter-spacing: 0.5px;
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   header p {
-    font-size: 12px;
-    color: var(--text2);
-    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 0.4rem;
   }
 
-  .search-bar {
-    padding: 14px 16px;
+  .card {
     background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 820px;
+    margin-bottom: 1.25rem;
   }
 
-  .search-bar input {
+  .card-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  /* Drop zone */
+  #drop-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: 10px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+
+  #drop-zone:hover, #drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  #drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  #drop-zone .icon {
+    font-size: 2rem;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  #drop-zone p { color: var(--muted); font-size: 0.9rem; }
+  #drop-zone strong { color: var(--text); }
+
+  /* Search row */
+  .search-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  input[type="text"] {
     flex: 1;
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border2);
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 0.7rem 1rem;
     color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
+    font-size: 0.95rem;
+    font-family: var(--font);
     outline: none;
     transition: border-color 0.2s;
   }
 
-  .search-bar input:focus {
+  input[type="text"]:focus {
     border-color: var(--accent);
   }
 
-  .search-bar input::placeholder { color: var(--text2); }
+  input[type="text"]::placeholder { color: var(--muted); }
 
-  .clear-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text2);
-    padding: 10px 14px;
-    font-size: 14px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-  }
-  .clear-btn:active { background: var(--border); }
-
-  .main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Camera section */
-  .camera-section {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .capture-btn {
-    width: 100%;
+  button {
     background: var(--accent);
-    color: #1a1814;
     border: none;
-    border-radius: 10px;
-    padding: 14px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 16px;
+    border-radius: 8px;
+    padding: 0.7rem 1.4rem;
+    color: #fff;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
+    font-family: var(--font);
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  button:hover { opacity: 0.88; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Options row */
+  .options-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.9rem;
+  }
+
+  label.toggle {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: opacity 0.2s;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
   }
 
-  .capture-btn:active { opacity: 0.8; }
-
-  .capture-btn.secondary {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
+  label.toggle input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
   }
 
-  #cameraInput { display: none; }
-  #galleryInput { display: none; }
-
-  /* Image preview */
-  .preview-container {
-    position: relative;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    display: none;
+  /* Status bar */
+  #status-bar {
+    font-size: 0.82rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 1.5rem;
+    margin-top: 0.5rem;
   }
 
-  .preview-container.visible { display: block; }
-
-  #previewImg {
-    width: 100%;
-    display: block;
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
   }
 
-  /* Highlights overlay */
-  .highlights-overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-  }
-
-  .highlight-box {
-    position: absolute;
-    background: var(--highlight);
-    border: 2px solid var(--highlight-border);
-    border-radius: 3px;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
+  .dot.active { background: var(--accent); animation: pulse 1s infinite; }
+  .dot.ok { background: var(--success); }
+  .dot.err { background: var(--danger); }
 
   @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(232,200,74,0.4); }
-    50% { box-shadow: 0 0 0 6px rgba(232,200,74,0); }
+    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
   }
 
-  /* OCR status */
-  .status {
-    text-align: center;
-    padding: 12px;
-    font-size: 13px;
-    color: var(--text2);
-    font-family: 'Courier Prime', monospace;
+  /* Canvas area */
+  #canvas-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    line-height: 0;
   }
 
-  .status.loading { color: var(--accent); }
-  .status.found { color: #6dcc7a; }
-  .status.notfound { color: var(--red); }
+  #canvas-wrap canvas {
+    max-width: 100%;
+    display: block;
+    border-radius: 8px;
+  }
 
-  /* Results section */
-  .results-section {
-    padding: 0 16px 16px;
-    display: flex;
+  #overlay-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+    border-radius: 8px;
+  }
+
+  #image-section {
+    display: none;
     flex-direction: column;
-    gap: 8px;
+    align-items: center;
+    gap: 1rem;
   }
 
-  .result-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text2);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin-bottom: 4px;
+  #match-count {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
   }
 
-  .extracted-text {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    line-height: 1.7;
-    color: var(--text);
-    max-height: 200px;
+  #match-count strong { color: var(--text); }
+
+  /* Recognized text preview */
+  #ocr-text-preview {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'Menlo', 'Consolas', monospace;
+    line-height: 1.6;
+    max-height: 100px;
     overflow-y: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
     white-space: pre-wrap;
-    word-break: break-word;
     display: none;
   }
 
-  .extracted-text.visible { display: block; }
-
-  mark {
-    background: var(--highlight);
-    color: var(--accent);
-    border-radius: 2px;
-    padding: 0 2px;
-    font-weight: 700;
-  }
-
-  /* Quick search chips */
-  .chips-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text2);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 16px 16px 8px;
-  }
-
-  .chips {
-    padding: 0 16px 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .chip {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 6px 12px;
-    font-size: 12px;
-    color: var(--text2);
-    cursor: pointer;
-    transition: all 0.15s;
-    font-family: 'Courier Prime', monospace;
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .chip:active, .chip.active {
-    background: rgba(232,200,74,0.15);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  /* Spinner */
-  .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(232,200,74,0.3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    vertical-align: middle;
-    margin-right: 6px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .divider {
-    height: 1px;
+  /* Progress bar */
+  #progress-wrap {
+    width: 100%;
+    height: 3px;
     background: var(--border);
-    margin: 4px 16px;
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+
+  #progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s;
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>📖 TKM Sticky Finder</h1>
-  <p>Take a photo of your book, find the quote</p>
+  <h1>OCR Phrase Finder</h1>
+  <p>Upload an image · OCR with Tesseract · Highlight any phrase like Apple Photos</p>
 </header>
 
-<div class="search-bar">
-  <input type="text" id="searchInput" placeholder="Paste quote to find..." autocomplete="off" autocorrect="off" spellcheck="false">
-  <button class="clear-btn" onclick="clearAll()">Clear</button>
+<div class="card">
+  <div class="card-title">Image</div>
+  <div id="drop-zone">
+    <input type="file" accept="image/*" id="file-input">
+    <span class="icon">🖼</span>
+    <p><strong>Drop an image here</strong> or click to browse</p>
+    <p style="margin-top:0.3rem;font-size:0.78rem;">PNG, JPG, WEBP, BMP — processed entirely in your browser</p>
+  </div>
 </div>
 
-<div class="main">
-  <div class="camera-section">
-    <button class="capture-btn" onclick="document.getElementById('cameraInput').click()">
-      📷 Take Photo of Page
-    </button>
-    <button class="capture-btn secondary" onclick="document.getElementById('galleryInput').click()">
-      🖼 Choose from Gallery
-    </button>
+<div class="card">
+  <div class="card-title">Search</div>
+  <div class="search-row">
+    <input type="text" id="phrase-input" placeholder="Type a word or phrase to highlight…" disabled>
+    <button id="search-btn" disabled>Find</button>
+  </div>
+  <div class="options-row">
+    <label class="toggle">
+      <input type="checkbox" id="case-sensitive"> Case-sensitive
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="show-all-words"> Show all word boxes
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="whitelist-only" checked> Use original char whitelist
+    </label>
+  </div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="status-bar"><div class="dot" id="status-dot"></div><span id="status-text">Load an image to begin.</span></div>
+</div>
 
-    <input type="file" id="cameraInput" accept="image/*" capture="environment">
-    <input type="file" id="galleryInput" accept="image/*">
-
-    <div class="preview-container" id="previewContainer">
-      <img id="previewImg" alt="Book page">
-      <canvas class="highlights-overlay" id="highlightCanvas"></canvas>
+<div class="card" id="image-section">
+  <div class="card-title" id="result-label">Result</div>
+  <div style="display:flex;justify-content:center;">
+    <div id="canvas-wrap">
+      <canvas id="main-canvas"></canvas>
+      <canvas id="overlay-canvas"></canvas>
     </div>
-
-    <div class="status" id="status">Take a photo or pick from gallery to begin</div>
   </div>
-
-  <div class="results-section" id="resultsSection" style="display:none">
-    <div class="result-label">Extracted Text</div>
-    <div class="extracted-text" id="extractedText"></div>
-  </div>
-
-  <div class="divider"></div>
-  <div class="chips-label">Quick-Find (tap to search)</div>
-  <div class="chips" id="chips"></div>
+  <div id="match-count"></div>
+  <div id="ocr-text-preview"></div>
 </div>
-
-<!-- Tesseract OCR -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 
 <script>
-const QUOTES = [
-  "The handful of people in this town with background",
-  "It's a sin to kill a mockingbird",
-  "Simply because we were licked a hundred years before we started",
-  "Atticus Finch is the same in his house as he is on the public streets",
-  "You never really understand a person until you consider things from his point of view",
-  "Courage is not a man with a gun in his hand",
-  "The one thing that doesn't abide by majority rule is a person's conscience",
-  "In our courts all men are created equal",
-  "Maycomb's usual disease",
-  "I guess Tom was tired of white men's chances",
-  "Miss Jean Louise, stand up. Your father's passin'",
-  "Guilty guilty guilty",
-  "A mob's always made up of people",
-  "Tom Robinson was probably the only person who was ever decent to her",
-  "If you was a nigger like me, you'd be scared, too",
-  "There's just one kind of folks. Folks.",
-  "It tears him to pieces",
-  "We're making a step — it's just a baby-step",
-  "That's what I thought, too, when I was your age",
-  "Always wanted a smaller house, Jem Finch",
-  "I wanted you to see what real courage is",
-  "She said she was going to leave this world beholden to nothing and nobody",
-  "That tree's as healthy as you are",
-  "Someone inside the house was laughing",
-  "Then whose blanket is that",
-];
+const fileInput    = document.getElementById('file-input');
+const dropZone     = document.getElementById('drop-zone');
+const phraseInput  = document.getElementById('phrase-input');
+const searchBtn    = document.getElementById('search-btn');
+const caseCb       = document.getElementById('case-sensitive');
+const showAllCb    = document.getElementById('show-all-words');
+const whitelistCb  = document.getElementById('whitelist-only');
+const mainCanvas   = document.getElementById('main-canvas');
+const overlayCanvas= document.getElementById('overlay-canvas');
+const imageSection = document.getElementById('image-section');
+const matchCount   = document.getElementById('match-count');
+const statusDot    = document.getElementById('status-dot');
+const statusText   = document.getElementById('status-text');
+const progressWrap = document.getElementById('progress-wrap');
+const progressBar  = document.getElementById('progress-bar');
+const ocrPreview   = document.getElementById('ocr-text-preview');
 
-let currentText = '';
-let searchQuery = '';
-let imgNaturalW = 0, imgNaturalH = 0;
-let wordData = [];
+let ocrWords = [];
+let currentImage = null;
 
-// Render chips
-const chipsEl = document.getElementById('chips');
-QUOTES.forEach(q => {
-  const chip = document.createElement('div');
-  chip.className = 'chip';
-  chip.textContent = '"' + q + '…"';
-  chip.onclick = () => {
-    document.getElementById('searchInput').value = q;
-    searchQuery = q.toLowerCase();
-    highlightInText(currentText);
-    drawHighlights();
-    // deselect others
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-  };
-  chipsEl.appendChild(chip);
-});
-
-// File inputs
-document.getElementById('cameraInput').addEventListener('change', e => handleFile(e.target.files[0]));
-document.getElementById('galleryInput').addEventListener('change', e => handleFile(e.target.files[0]));
-
-// Search input
-document.getElementById('searchInput').addEventListener('input', e => {
-  searchQuery = e.target.value.toLowerCase().trim();
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  if (currentText) {
-    highlightInText(currentText);
-    drawHighlights();
-  }
-});
-
-function handleFile(file) {
-  if (!file) return;
-  const url = URL.createObjectURL(file);
-  const img = document.getElementById('previewImg');
-  img.onload = () => {
-    imgNaturalW = img.naturalWidth;
-    imgNaturalH = img.naturalHeight;
-    resizeCanvas();
-    runOCR(url);
-  };
-  img.src = url;
-  document.getElementById('previewContainer').classList.add('visible');
-  document.getElementById('status').className = 'status loading';
-  document.getElementById('status').innerHTML = '<span class="spinner"></span>Running OCR…';
-  document.getElementById('resultsSection').style.display = 'none';
-  wordData = [];
+function setStatus(msg, state = 'idle') {
+  statusText.textContent = msg;
+  statusDot.className = 'dot' + (state === 'busy' ? ' active' : state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
 }
 
-function resizeCanvas() {
-  const img = document.getElementById('previewImg');
-  const canvas = document.getElementById('highlightCanvas');
-  canvas.width = img.clientWidth;
-  canvas.height = img.clientHeight;
+function setProgress(pct) {
+  if (pct <= 0) { progressWrap.style.display = 'none'; return; }
+  progressWrap.style.display = 'block';
+  progressBar.style.width = pct + '%';
 }
 
-window.addEventListener('resize', () => {
-  if (document.getElementById('previewContainer').classList.contains('visible')) {
-    resizeCanvas();
-    drawHighlights();
-  }
-});
+// Apply the same preprocessing as LabelOCR.cpp:
+// 1. medianBlur (3x3 median)
+// 2. High-pass sharpening kernel (5x5)
+// 3. Convert to grayscale
+function preProcess(imgCanvas) {
+  const w = imgCanvas.width, h = imgCanvas.height;
+  const ctx = imgCanvas.getContext('2d');
+  const src = ctx.getImageData(0, 0, w, h);
+  const data = src.data;
 
-async function runOCR(url) {
+  // 1. 3x3 median blur (per channel)
+  const med = new Uint8ClampedArray(data.length);
+  const neighbors = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let c = 0; c < 3; c++) {
+        neighbors.length = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = Math.min(Math.max(x + dx, 0), w - 1);
+            const ny = Math.min(Math.max(y + dy, 0), h - 1);
+            neighbors.push(data[(ny * w + nx) * 4 + c]);
+          }
+        }
+        neighbors.sort((a, b) => a - b);
+        med[(y * w + x) * 4 + c] = neighbors[4];
+      }
+      med[(y * w + x) * 4 + 3] = 255;
+    }
+  }
+
+  // 2. 5x5 high-pass sharpening kernel (same as LabelOCR.cpp):
+  // center = 25, all others = -1
+  const kernel = Array(25).fill(-1); kernel[12] = 25;
+  const sharp = new Uint8ClampedArray(data.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let c = 0; c < 3; c++) {
+        let sum = 0;
+        for (let ky = -2; ky <= 2; ky++) {
+          for (let kx = -2; kx <= 2; kx++) {
+            const nx = Math.min(Math.max(x + kx, 0), w - 1);
+            const ny = Math.min(Math.max(y + ky, 0), h - 1);
+            sum += med[(ny * w + nx) * 4 + c] * kernel[(ky + 2) * 5 + (kx + 2)];
+          }
+        }
+        sharp[(y * w + x) * 4 + c] = Math.min(255, Math.max(0, sum));
+      }
+      sharp[(y * w + x) * 4 + 3] = 255;
+    }
+  }
+
+  // 3. Convert to grayscale (BT.601 luminance)
+  const gray = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < w * h; i++) {
+    const r = sharp[i * 4], g = sharp[i * 4 + 1], b = sharp[i * 4 + 2];
+    const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    gray[i * 4] = gray[i * 4 + 1] = gray[i * 4 + 2] = lum;
+    gray[i * 4 + 3] = 255;
+  }
+
+  const out = new ImageData(gray, w, h);
+  return out;
+}
+
+async function runOCR(imgEl) {
+  setStatus('Preprocessing image…', 'busy');
+  setProgress(10);
+
+  // Draw original to canvas
+  mainCanvas.width = imgEl.naturalWidth;
+  mainCanvas.height = imgEl.naturalHeight;
+  const ctx = mainCanvas.getContext('2d');
+  ctx.drawImage(imgEl, 0, 0);
+
+  // Size overlay to match
+  overlayCanvas.width = mainCanvas.width;
+  overlayCanvas.height = mainCanvas.height;
+
+  // Preprocess (mirror LabelOCR.cpp)
+  const processedData = preProcess(mainCanvas);
+
+  // Redraw original (for display)
+  ctx.drawImage(imgEl, 0, 0);
+
+  // Build a temp canvas with processed data for Tesseract
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = mainCanvas.width;
+  tmpCanvas.height = mainCanvas.height;
+  tmpCanvas.getContext('2d').putImageData(processedData, 0, 0);
+
+  setStatus('Running Tesseract OCR…', 'busy');
+  setProgress(30);
+
   try {
-    const worker = await Tesseract.createWorker('eng');
-    const result = await worker.recognize(url);
+    // Mirror the C++ Tesseract config exactly:
+    // OEM_DEFAULT, PSM_SINGLE_BLOCK, char whitelist
+    const charWhitelist = whitelistCb.checked
+      ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
+      : '';
+
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          setProgress(30 + Math.round(m.progress * 60));
+        }
+      }
+    });
+
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6',  // PSM_SINGLE_BLOCK = 6
+      tessedit_char_whitelist: charWhitelist,
+    });
+
+    const result = await worker.recognize(tmpCanvas);
     await worker.terminate();
 
-    currentText = result.data.text;
-    wordData = result.data.words || [];
+    setProgress(95);
 
-    document.getElementById('resultsSection').style.display = 'flex';
-    document.getElementById('extractedText').classList.add('visible');
-    highlightInText(currentText);
-    drawHighlights();
+    ocrWords = result.data.words.map(w => ({
+      text: w.text.replace(/[?]/g, ''),
+      bbox: w.bbox,
+      conf: w.confidence
+    })).filter(w => w.text.trim().length > 0);
 
-  } catch(err) {
-    document.getElementById('status').className = 'status notfound';
-    document.getElementById('status').textContent = 'OCR failed. Try a clearer photo.';
+    const fullText = result.data.text;
+    ocrPreview.textContent = fullText.trim();
+    ocrPreview.style.display = 'block';
+
+    setProgress(100);
+    setTimeout(() => setProgress(0), 600);
+
+    phraseInput.disabled = false;
+    searchBtn.disabled = false;
+    phraseInput.focus();
+
+    setStatus(`OCR complete — ${ocrWords.length} words detected.`, 'ok');
+    imageSection.style.display = 'flex';
+    clearHighlights();
+    matchCount.textContent = '';
+
+    // Auto-highlight if phrase already typed
+    if (phraseInput.value.trim()) doSearch();
+
+  } catch (e) {
+    setStatus('OCR failed: ' + e.message, 'err');
+    setProgress(0);
+    console.error(e);
   }
 }
 
-function highlightInText(text) {
-  const el = document.getElementById('extractedText');
-  if (!searchQuery || !text) {
-    el.textContent = text || '';
-    updateStatus(text, false);
-    return;
-  }
+function clearHighlights() {
+  const ctx = overlayCanvas.getContext('2d');
+  ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+}
 
-  const lower = text.toLowerCase();
-  const idx = lower.indexOf(searchQuery);
+function doSearch() {
+  clearHighlights();
+  const phrase = phraseInput.value.trim();
 
-  if (idx === -1) {
-    el.textContent = text;
-    updateStatus(text, false);
-    return;
-  }
+  const scaleX = mainCanvas.width / mainCanvas.offsetWidth;
+  const scaleY = mainCanvas.height / mainCanvas.offsetHeight;
 
-  // Build highlighted HTML
-  let html = '';
-  let pos = 0;
-  let tempLower = lower;
-  let tempText = text;
-  let found = false;
+  const ctx = overlayCanvas.getContext('2d');
+  const allWords = ocrWords;
 
-  while (true) {
-    const i = tempLower.indexOf(searchQuery, pos);
-    if (i === -1) {
-      html += escHtml(tempText.slice(pos));
-      break;
+  if (showAllCb.checked) {
+    ctx.strokeStyle = 'rgba(124,110,245,0.4)';
+    ctx.lineWidth = 1.5;
+    for (const w of allWords) {
+      ctx.strokeRect(w.bbox.x0, w.bbox.y0, w.bbox.x1 - w.bbox.x0, w.bbox.y1 - w.bbox.y0);
     }
-    found = true;
-    html += escHtml(tempText.slice(pos, i));
-    html += '<mark>' + escHtml(tempText.slice(i, i + searchQuery.length)) + '</mark>';
-    pos = i + searchQuery.length;
   }
 
-  el.innerHTML = html;
-  updateStatus(text, found);
+  if (!phrase) { matchCount.textContent = ''; return; }
 
-  // Scroll to first mark
-  const firstMark = el.querySelector('mark');
-  if (firstMark) firstMark.scrollIntoView({ block: 'center', behavior: 'smooth' });
-}
+  const words = phrase.split(/\s+/);
+  const compare = (a, b) => caseCb.checked ? a === b : a.toLowerCase() === b.toLowerCase();
 
-function updateStatus(text, found) {
-  const el = document.getElementById('status');
-  if (!searchQuery) {
-    el.className = 'status';
-    el.textContent = 'OCR complete. Type or tap a quote to find it.';
-    return;
+  let matches = 0;
+
+  // Sliding window over ocrWords to find consecutive word sequences
+  for (let i = 0; i <= allWords.length - words.length; i++) {
+    let hit = true;
+    for (let j = 0; j < words.length; j++) {
+      if (!compare(allWords[i + j].text, words[j])) { hit = false; break; }
+    }
+    if (hit) {
+      matches++;
+      const group = allWords.slice(i, i + words.length);
+      const x0 = Math.min(...group.map(w => w.bbox.x0));
+      const y0 = Math.min(...group.map(w => w.bbox.y0));
+      const x1 = Math.max(...group.map(w => w.bbox.x1));
+      const y1 = Math.max(...group.map(w => w.bbox.y1));
+
+      const pad = 4;
+
+      // Yellow highlight fill (like Apple Photos)
+      ctx.fillStyle = 'rgba(255, 214, 0, 0.40)';
+      ctx.beginPath();
+      ctx.roundRect(x0 - pad, y0 - pad, (x1 - x0) + pad * 2, (y1 - y0) + pad * 2, 4);
+      ctx.fill();
+
+      // Bright border
+      ctx.strokeStyle = 'rgba(255, 195, 0, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x0 - pad, y0 - pad, (x1 - x0) + pad * 2, (y1 - y0) + pad * 2, 4);
+      ctx.stroke();
+
+      // Subtle glow
+      ctx.strokeStyle = 'rgba(255, 214, 0, 0.25)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(x0 - pad - 2, y0 - pad - 2, (x1 - x0) + (pad + 2) * 2, (y1 - y0) + (pad + 2) * 2, 6);
+      ctx.stroke();
+    }
   }
-  if (found) {
-    el.className = 'status found';
-    el.textContent = '✓ Found! Highlighted in text and image below.';
+
+  if (matches === 0) {
+    matchCount.innerHTML = `<strong style="color:var(--danger)">No matches found</strong> for "${phrase}"`;
   } else {
-    el.className = 'status notfound';
-    el.textContent = '✗ Not found on this page. Try a different photo.';
+    matchCount.innerHTML = `<strong style="color:var(--success)">${matches} match${matches > 1 ? 'es' : ''}</strong> found for "<strong>${phrase}</strong>"`;
   }
 }
 
-function drawHighlights() {
-  const canvas = document.getElementById('highlightCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  if (!searchQuery || !wordData.length) return;
-
-  const img = document.getElementById('previewImg');
-  const scaleX = img.clientWidth / imgNaturalW;
-  const scaleY = img.clientHeight / imgNaturalH;
-
-  // Find words matching query tokens
-  const tokens = searchQuery.split(/\s+/).filter(t => t.length > 2);
-  if (!tokens.length) return;
-
-  // Group consecutive matching words
-  let matchGroups = [];
-  let i = 0;
-  while (i < wordData.length) {
-    // Try to match as many consecutive tokens as possible starting here
-    let matched = [];
-    let wi = i;
-    let ti = 0;
-    while (ti < tokens.length && wi < wordData.length) {
-      const wText = (wordData[wi].text || '').toLowerCase().replace(/[^a-z0-9']/g,'');
-      const token = tokens[ti].replace(/[^a-z0-9']/g,'');
-      if (wText.includes(token) || token.includes(wText)) {
-        matched.push(wordData[wi]);
-        ti++;
-        wi++;
-      } else {
-        break;
-      }
-    }
-    if (matched.length >= Math.min(2, tokens.length)) {
-      matchGroups.push(matched);
-      i = wi;
-    } else {
-      i++;
-    }
-  }
-
-  if (!matchGroups.length) return;
-
-  // Draw highlight boxes
-  ctx.fillStyle = 'rgba(232, 200, 74, 0.3)';
-  ctx.strokeStyle = '#e8c84a';
-  ctx.lineWidth = 2;
-
-  matchGroups.forEach(group => {
-    const bbox = group.reduce((acc, w) => {
-      const b = w.bbox;
-      return {
-        x0: Math.min(acc.x0, b.x0),
-        y0: Math.min(acc.y0, b.y0),
-        x1: Math.max(acc.x1, b.x1),
-        y1: Math.max(acc.y1, b.y1),
-      };
-    }, { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
-
-    const pad = 4;
-    const x = (bbox.x0 - pad) * scaleX;
-    const y = (bbox.y0 - pad) * scaleY;
-    const w = (bbox.x1 - bbox.x0 + pad * 2) * scaleX;
-    const h = (bbox.y1 - bbox.y0 + pad * 2) * scaleY;
-
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeRect(x, y, w, h);
-  });
+function loadImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    currentImage = img;
+    ocrWords = [];
+    phraseInput.disabled = true;
+    searchBtn.disabled = true;
+    matchCount.textContent = '';
+    ocrPreview.style.display = 'none';
+    runOCR(img);
+  };
+  img.src = url;
 }
 
-function clearAll() {
-  document.getElementById('searchInput').value = '';
-  searchQuery = '';
-  currentText = '';
-  wordData = [];
-  document.getElementById('previewContainer').classList.remove('visible');
-  document.getElementById('resultsSection').style.display = 'none';
-  document.getElementById('extractedText').classList.remove('visible');
-  document.getElementById('extractedText').textContent = '';
-  document.getElementById('status').className = 'status';
-  document.getElementById('status').textContent = 'Take a photo or pick from gallery to begin';
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  const canvas = document.getElementById('highlightCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  document.getElementById('cameraInput').value = '';
-  document.getElementById('galleryInput').value = '';
-}
+fileInput.addEventListener('change', e => loadImage(e.target.files[0]));
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  loadImage(e.dataTransfer.files[0]);
+});
+
+searchBtn.addEventListener('click', doSearch);
+phraseInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+showAllCb.addEventListener('change', () => { if (ocrWords.length) doSearch(); });
+caseCb.addEventListener('change', () => { if (ocrWords.length) doSearch(); });
+whitelistCb.addEventListener('change', () => { if (currentImage) runOCR(currentImage); });
 </script>
 </body>
 </html>
